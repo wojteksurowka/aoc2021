@@ -10,7 +10,8 @@ read(Module, RE, Types) ->
         {match, [_All | Groups]} = re:run(Line, CompiledRE),
         Converted = lists:map(fun
             ({Group, atom}) -> binary_to_atom(binary:part(Line, Group));
-            ({Group, integer}) -> binary_to_integer(binary:part(Line, Group))
+            ({Group, integer}) -> binary_to_integer(binary:part(Line, Group));
+            ({Group, binary}) -> binary:part(Line, Group)
         end, lists:zip(Groups, Types)),
         case Types of
             [_Single] -> hd(Converted);
