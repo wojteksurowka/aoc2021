@@ -18,7 +18,30 @@ part1() ->
     Gamma * Epsilon.
 
 part2() ->
-    ok.
+    Numbers = input(),
+    most_common(1, Numbers) * least_common(1, Numbers).
+
+most_common(Index, Numbers) ->
+    What = case zeroones(Index, Numbers) of
+        {Zeros, Ones} when Zeros > Ones -> $0;
+        _ -> $1
+    end,
+    Filtered = lists:filter(fun (Number) -> binary_part(Number, Index - 1, 1) =:= <<What>> end, Numbers),
+    case Filtered of
+        [Single] -> binary_to_integer(Single, 2);
+        _ -> most_common(Index + 1, Filtered)
+    end.
+
+least_common(Index, Numbers) ->
+    What = case zeroones(Index, Numbers) of
+        {Zeros, Ones} when Zeros > Ones -> $1;
+        _ -> $0
+    end,
+    Filtered = lists:filter(fun (Number) -> binary_part(Number, Index - 1, 1) =:= <<What>> end, Numbers),
+    case Filtered of
+        [Single] -> binary_to_integer(Single, 2);
+        _ -> least_common(Index + 1, Filtered)
+    end.
 
 zeroones(Index, Numbers) ->
     lists:foldl(fun (Binary, {Zeros, Ones}) ->

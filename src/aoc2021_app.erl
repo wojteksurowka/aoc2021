@@ -18,7 +18,7 @@ stop(_State) ->
 start() ->
 
     Day = 3,
-    Part = 1,
+    Part = 2,
 
     Module = list_to_atom("day" ++ integer_to_list(Day)),
     Function = list_to_atom("part" ++ integer_to_list(Part)),
