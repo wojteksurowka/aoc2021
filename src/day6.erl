@@ -27,11 +27,3 @@ next_day(FishTuple) ->
     WithEights = erlang:append_element(Shifted, element(1, FishTuple)),
     AndSixes = setelement(7, WithEights, element(7, WithEights) + element(1, FishTuple)),
     AndSixes.
-
-next_day1(FishList) ->
-    New = length(lists:filter(fun (X) -> X == 0 end, FishList)),
-    Existing = lists:map(fun
-        (0) -> 6;
-        (X) -> X - 1
-    end, FishList),
-    Existing ++ lists:duplicate(New, 8).
