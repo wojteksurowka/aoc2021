@@ -6,15 +6,19 @@ read(Module, RE, Types) ->
     {ok, Input} = file:read_file("input/day" ++ Day ++ ".in"),
     Lines = binary:split(Input, <<"\n">>, [global, trim_all]),
     {ok, CompiledRE} = re:compile(RE),
-    lists:map(fun (Line) ->
-        {match, [_All | Groups]} = re:run(Line, CompiledRE),
-        Converted = lists:map(fun
-            ({Group, atom}) -> binary_to_atom(binary:part(Line, Group));
-            ({Group, integer}) -> binary_to_integer(binary:part(Line, Group));
-            ({Group, binary}) -> binary:part(Line, Group)
-        end, lists:zip(Groups, Types)),
-        case Types of
-            [_Single] -> hd(Converted);
-            _ -> list_to_tuple(Converted)
+    lists:filtermap(fun (Line) ->
+        case re:run(Line, CompiledRE) of
+            {match, [_All | Groups]} ->
+                Converted = lists:map(fun
+                    ({Group, atom}) -> binary_to_atom(binary:part(Line, Group));
+                    ({Group, integer}) -> binary_to_integer(binary:part(Line, Group));
+                    ({Group, binary}) -> binary:part(Line, Group)
+                end, lists:zip(Groups, Types)),
+                case Types of
+                    [_Single] -> {true, hd(Converted)};
+                    _ -> {true, list_to_tuple(Converted)}
+                end;
+            _ ->
+                false
         end
     end, Lines).
