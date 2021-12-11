@@ -16,12 +16,25 @@ stop(_State) ->
     ok.
 
 start() ->
-
-    Day = 7,
-    Part = 2,
-
-    Module = list_to_atom("day" ++ integer_to_list(Day)),
-    Function = list_to_atom("part" ++ integer_to_list(Part)),
+    Module = find_last_day(1),
+    {module, _} = code:ensure_loaded(Module),
+    Exports = Module:module_info(exports),
+    Function = case {lists:member({part1, 0}, Exports), lists:member({part2, 0}, Exports)} of
+        {_, true} ->
+            part2;
+        {true, _} ->
+            part1;
+        _ ->
+            throw("Part function not exported")
+    end,
     Result = Module:Function(),
-    io:format("~nDay ~p Part ~p: ~p~n~n", [Day, Part, Result]),
+    Day = lists:nthtail(3, atom_to_list(Module)),
+    Part = lists:nthtail(4, atom_to_list(Function)),
+    io:format("~nDay ~s Part ~s: ~p~n~n", [Day, Part, Result]),
     halt().
+
+find_last_day(N) ->
+    case code:which(list_to_atom("day" ++ integer_to_list(N+1))) of
+        non_existing -> list_to_atom("day" ++ integer_to_list(N));
+        _ -> find_last_day(N + 1)
+    end.
