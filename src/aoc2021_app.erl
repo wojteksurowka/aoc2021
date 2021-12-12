@@ -34,7 +34,7 @@ start() ->
     halt().
 
 find_last_day(N) ->
-    case code:which(list_to_atom("day" ++ integer_to_list(N+1))) of
+    case code:which(list_to_atom("day" ++ integer_to_list(N + 1))) of
         non_existing -> list_to_atom("day" ++ integer_to_list(N));
         _ -> find_last_day(N + 1)
     end.
