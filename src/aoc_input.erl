@@ -12,6 +12,7 @@ read(Module, RE, Types) ->
                 Converted = lists:map(fun
                     ({Group, atom}) -> binary_to_atom(binary:part(Line, Group));
                     ({Group, integer}) -> binary_to_integer(binary:part(Line, Group));
+                    ({Group, character}) -> hd(binary_to_list(binary:part(Line, Group)));
                     ({Group, binary}) -> binary:part(Line, Group);
                     ({Group, list}) -> binary_to_list(binary:part(Line, Group))
                 end, lists:zip(Groups, Types)),
