@@ -1,5 +1,5 @@
 -module(day16).
--export([part1/0]).
+-export([part1/0, part2/0]).
 
 input() ->
     join(lists:map(fun (D) ->
@@ -8,6 +8,26 @@ input() ->
 
 part1() ->
     total_version(element(1, packets(input(), undefined, []))).
+
+part2() ->
+    value(hd(element(1, packets(input(), undefined, [])))).
+
+value({_Ver, literal, Literal}) ->
+    Literal;
+value({_Ver, operator, Type, SubPackets}) when Type == 0; Type == 2; Type == 3 ->
+    Function = element(Type + 1, {sum, undefined, min, max}),
+    lists:Function([value(SubPacket) || SubPacket <- SubPackets]);
+value({_Ver, operator, 1, SubPackets}) ->
+    lists:foldl(fun (SubPacket, Acc) -> value(SubPacket) * Acc end, 1, SubPackets);
+value({_Ver, operator, 5, [SubPacketL, SubPacketR]}) ->
+    bool_to_integer(value(SubPacketL) > value(SubPacketR));
+value({_Ver, operator, 6, [SubPacketL, SubPacketR]}) ->
+    bool_to_integer(value(SubPacketL) < value(SubPacketR));
+value({_Ver, operator, 7, [SubPacketL, SubPacketR]}) ->
+    bool_to_integer(value(SubPacketL) == value(SubPacketR)).
+
+bool_to_integer(true) -> 1;
+bool_to_integer(false) -> 0.
 
 packets(Input, 0, Acc) ->
     {lists:reverse(Acc), Input};
