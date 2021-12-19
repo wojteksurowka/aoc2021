@@ -21,43 +21,89 @@ part2() ->
 do_map(Map) ->
     Width = tuple_size(element(1, Map)),
     Height = tuple_size(Map),
-    Horizontal = lists:foldl(fun (X, Acc) -> el({X, 1}, Map) + Acc end, 0, lists:seq(2, Width)),
-    AndVertical = lists:foldl(fun (Y, Acc) -> el({Width, Y}, Map) + Acc end, Horizontal, lists:seq(1, Height)),
-    element(1, minpathto({Width, Height}, Map, #{}, [{Width, Height}], AndVertical, 0)).
+    {Unvisited, BimapInfinity} = lists:foldl(fun (X, Acc) ->
+        lists:foldl(fun (Y, {UnVisitedAcc, BimapAcc}) ->
+            {sets:add_element({X, Y}, UnVisitedAcc), distance_bimap_infinity({X, Y}, BimapAcc)}
+        end, Acc, lists:seq(1, Height))
+    end, {sets:new(), distance_bimap_new()}, lists:seq(1, Width)),
+    InitialBimap = distance_bimap_set({1, 1}, 0, BimapInfinity),
+    distance_bimap_get({Width, Height}, dijkstra({1, 1}, Unvisited, InitialBimap, Map)).
 
-shift(X, Offset) -> ((X - 1) + Offset) rem 9 + 1.
-
-minpathto({X, Y}, _Map, Cache, Visited, APath, Partial) when APath < Partial ->
-    {false, Cache#{{X, Y, length(Visited)} => false}};
-minpathto({1, 2}, Map, Cache, _Visited, _APath, _Partial) ->
-    {el({1, 2}, Map), Cache};
-minpathto({2, 1}, Map, Cache, _Visited, _APath, _Partial) ->
-    {el({2, 1}, Map), Cache};
-minpathto({X, Y}, Map, Cache, Visited, APath, Partial) ->
-    VisitedLen = length(Visited),
-    case maps:get({X, Y, VisitedLen}, Cache, undefined) of
-        undefined ->
-            {Paths, UpdatedCache} = lists:mapfoldl(fun (Pred, CacheAcc) ->
-                minpathto(Pred, Map, CacheAcc, ordsets:add_element({X, Y}, Visited), APath, Partial + el({X, Y}, Map))
-            end, Cache, preds({X, Y}, Map, Visited)),
-            RealPaths = lists:filter(fun is_number/1, Paths),
-            Result = case RealPaths of
-                [] -> false;
-                _ -> lists:min(RealPaths) + el({X, Y}, Map)
-            end,
-            {Result, UpdatedCache#{{X, Y, VisitedLen} => Result}};
-        Result ->
-            {Result, Cache}
+dijkstra(Current, Unvisited, Bimap, Map) ->
+    Width = tuple_size(element(1, Map)),
+    Height = tuple_size(Map),
+    UnvisitedNeighbours = lists:filter(fun (N) -> sets:is_element(N, Unvisited) end, neighbours(Current, Map)),
+    CurrentDistance = distance_bimap_get(Current, Bimap),
+    UpdatedBimap = lists:foldl(fun (N, Acc) ->
+        NeighbourDistance = CurrentDistance + el(N, Map),
+        case NeighbourDistance < distance_bimap_get(N, Acc) of
+            true -> distance_bimap_set(N, NeighbourDistance, Acc);
+            false -> Acc
+        end
+    end, Bimap, UnvisitedNeighbours),
+    UpdatedUnvisited = sets:del_element(Current, Unvisited),
+    case sets:is_element({Width, Height}, UpdatedUnvisited) of
+        true ->
+            BimapVisited = distance_bimap_set_visited(Current, UpdatedBimap),
+            dijkstra(distance_bimap_min_unvisited(BimapVisited), UpdatedUnvisited, BimapVisited, Map);
+        false ->
+            UpdatedBimap
     end.
 
-preds({X, Y}, Map, Visited) ->
+neighbours({X, Y}, Map) ->
     Width = tuple_size(element(1, Map)),
     Height = tuple_size(Map),
     All = [{X - 1, Y}, {X, Y - 1}, {X + 1, Y}, {X, Y + 1}],
-    Inside = lists:filter(fun ({XF, YF}) ->
+    lists:filter(fun ({XF, YF}) ->
         XF >= 1 andalso XF =< Width andalso YF >= 1 andalso YF =< Height
-    end, All),
-    ordsets:subtract(ordsets:from_list(Inside), Visited).
+    end, All).
+
+distance_bimap_new() ->
+    {#{}, #{}, #{}}.
+
+distance_bimap_infinity(XY, {XY2D, D2UXYs, D2VXYs}) ->
+    {XY2D#{XY => infinity}, D2UXYs#{infinity => sets:add_element(XY, maps:get(infinity, D2UXYs, sets:new()))}, D2VXYs}.
+
+distance_bimap_set(XY, Distance, {XY2D, D2UXYs, D2VXYs}) ->
+    PrevDistance = maps:get(XY, XY2D),
+    {WasUnvisited, D2UXYsWithoutXY} = remove_from_d2xy(XY, PrevDistance, D2UXYs),
+    {WasVisited, D2VXYsWithoutXY} = remove_from_d2xy(XY, PrevDistance, D2VXYs),
+    case {WasUnvisited, WasVisited} of
+        {true, false} -> {XY2D#{XY => Distance}, add_to_d2xy(XY, Distance, D2UXYsWithoutXY), D2VXYsWithoutXY};
+        {false, true} -> {XY2D#{XY => Distance}, D2UXYsWithoutXY, add_to_d2xy(XY, Distance, D2VXYsWithoutXY)}
+    end.
+
+distance_bimap_get(XY, {XY2D, _D2UXYs, _D2VXYs}) ->
+    maps:get(XY, XY2D).
+
+distance_bimap_set_visited(XY, {XY2D, D2UXYs, D2VXYs}) ->
+    Distance = maps:get(XY, XY2D),
+    {XY2D, element(2, remove_from_d2xy(XY, Distance, D2UXYs)), add_to_d2xy(XY, Distance, D2VXYs)}.
+
+distance_bimap_min_unvisited({_XY2D, D2UXYs, _D2VXYs}) ->
+    Distance = hd(lists:sort(maps:keys(D2UXYs))),
+    hd(sets:to_list(maps:get(Distance, D2UXYs))).
+
+remove_from_d2xy(XY, Distance, D2XY) ->
+    case maps:get(Distance, D2XY, undefined) of
+        undefined ->
+            {false, D2XY};
+        PrevXYs ->
+            WithoutXY = sets:del_element(XY, PrevXYs),
+            UpdatedD2XY = case sets:size(WithoutXY) of
+                0 -> maps:remove(Distance, D2XY);
+                _ -> D2XY#{Distance := WithoutXY}
+            end,
+            {sets:size(WithoutXY) < sets:size(PrevXYs), UpdatedD2XY}
+    end.
+
+add_to_d2xy(XY, Distance, D2XY) ->
+    case maps:get(Distance, D2XY, undefined) of
+        undefined -> D2XY#{Distance => sets:from_list([XY])};
+        XYs -> D2XY#{Distance => sets:add_element(XY, XYs)}
+    end.
+
+shift(X, Offset) -> ((X - 1) + Offset) rem 9 + 1.
 
 el({X, Y}, Map) ->
     element(X, element(Y, Map)).
