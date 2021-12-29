@@ -1,5 +1,5 @@
 -module(day19).
--export([part1/0]).
+-export([part1/0, part2/0]).
 
 input() ->
     lists:foldl(fun
@@ -12,11 +12,18 @@ input() ->
 
 part1() ->
     Scanners = input(),
-    Done = find_region(Scanners, sets:new(), []),
+    Done = find_region(Scanners, sets:new()),
     length(map_beacons(Done, Scanners)).
-    %lists:foldl(fun (Done, Acc) ->
-    %    length(map_beacons(Done, Scanners)) + Acc
-    %end, 0, Found).
+
+part2() ->
+    Positions = maps:fold(fun (_Scanner, {FR, Delta}, Acc) ->
+        [add(map({0, 0, 0}, FR), Delta) | Acc]
+    end, [], find_region(input(), sets:new())),
+    lists:max(lists:foldl(fun ({LX, LY, LZ}, LAcc) ->
+        lists:foldl(fun ({RX, RY, RZ}, RAcc) ->
+            [abs(LX - RX) + abs(LY - RY) + abs(LZ - RZ) | RAcc]
+        end, LAcc, Positions)
+    end, [], Positions)).
 
 map_beacons(Done, Scanners) ->
     lists:usort(maps:fold(fun (Scanner, {FR, Delta}, Acc) ->
@@ -25,15 +32,10 @@ map_beacons(Done, Scanners) ->
         end, Acc, maps:get(Scanner, Scanners))
     end, [], Done)).
 
-find_region(Scanners, Misses, Acc) ->
+find_region(Scanners, Misses) ->
     Scanner = hd(lists:sort(maps:keys(Scanners))),
-    case find_next(#{Scanner => {[hd(positions())], {0, 0, 0}}}, lists:delete(Scanner, maps:keys(Scanners)), Scanners, Misses) of
-        {Done, [], _UpdatedMisses} ->
-            Done;
-        {Done, NotDone, UpdatedMisses} ->
-            Done
-            %find_region(maps:with(NotDone, Scanners), UpdatedMisses, [Done | Acc])
-    end.
+    {Done, _, _} = find_next(#{Scanner => {[hd(positions())], {0, 0, 0}}}, lists:delete(Scanner, maps:keys(Scanners)), Scanners, Misses),
+    Done.
 
 find_next(Done, [], _Scanners, Misses) ->
     {Done, [], Misses};
@@ -120,10 +122,10 @@ map({X, Y, Z}, {F, R}) ->
     {FX, FY, FZ} = case F of
         1 -> {X, Y, Z};
         2 -> {Y, -X, Z};
-        3 -> {-X, -Y, Z};
-        4 -> {-Y, X, Z};
-        5 -> {Z, X, Y};
-        6 -> {-Z, -X, -Y}
+        3 -> {Z, Y, -X};
+        4 -> {-X, Y, -Z};
+        5 -> {-Y, X, Z};
+        6 -> {-Z, Y, X}
     end,
     case R of
         1 -> {FX, FY, FZ};
