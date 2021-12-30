@@ -12,8 +12,8 @@ input() ->
 
 part1() ->
     Scanners = input(),
-    Done = find_region(Scanners, sets:new()),
-    length(map_beacons(Done, Scanners)).
+    Scanner2Info = find_region(Scanners, sets:new()),
+    length(map_beacons(Scanner2Info, Scanners)).
 
 part2() ->
     Positions = maps:fold(fun (_Scanner, {FR, Delta}, Acc) ->
@@ -25,17 +25,17 @@ part2() ->
         end, LAcc, Positions)
     end, [], Positions)).
 
-map_beacons(Done, Scanners) ->
+map_beacons(Scanner2Info, Scanners) ->
     lists:usort(maps:fold(fun (Scanner, {FR, Delta}, Acc) ->
         sets:fold(fun (Beacon, BAcc) ->
             [add(map(Beacon, FR), Delta) | BAcc]
         end, Acc, maps:get(Scanner, Scanners))
-    end, [], Done)).
+    end, [], Scanner2Info)).
 
 find_region(Scanners, Misses) ->
     Scanner = hd(lists:sort(maps:keys(Scanners))),
-    {Done, _, _} = find_next(#{Scanner => {[hd(positions())], {0, 0, 0}}}, lists:delete(Scanner, maps:keys(Scanners)), Scanners, Misses),
-    Done.
+    {Scanner2Info, [], _Misses} = find_next(#{Scanner => {[hd(positions())], {0, 0, 0}}}, lists:delete(Scanner, maps:keys(Scanners)), Scanners, Misses),
+    Scanner2Info.
 
 find_next(Done, [], _Scanners, Misses) ->
     {Done, [], Misses};
