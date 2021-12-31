@@ -9,7 +9,8 @@ input() ->
     end, Occupied, hallway()).
 
 part1() ->
-    element(1, find_cost(input(), #{})).
+    Burrow = input(),
+    element(1, find_cost(Burrow, #{})).
 
 part2() ->
     Burrow = input(),
@@ -47,11 +48,19 @@ find_cost(Burrow, Cache) ->
     end.
 
 next(Burrow) ->
-    lists:flatten(lists:map(fun ({A, XY}) ->
+    Moves = lists:flatten(lists:map(fun ({A, XY}) ->
         lists:map(fun (DXY) ->
-            {maps:put(DXY, A, maps:put(XY, undefined, Burrow)), cost(A, XY, DXY)}
+            {A, XY, DXY}
         end, destinations(A, XY, Burrow))
-    end, amphipods(Burrow))).
+    end, amphipods(Burrow))),
+    FinishingMove = lists:search(fun ({_A, {_X, _Y}, {_DX, DY}}) -> DY > 1 end, Moves),
+    MovesToUse = case FinishingMove of
+        {value, Move} -> [Move];
+        false -> Moves
+    end,
+    lists:map(fun ({A, XY, DXY}) ->
+        {maps:put(DXY, A, maps:put(XY, undefined, Burrow)), cost(A, XY, DXY)}
+    end, MovesToUse).
 
 complete(Burrow) ->
     Depth = depth(Burrow),
@@ -61,7 +70,7 @@ complete(Burrow) ->
     end, ['A', 'B', 'C', 'D']).
 
 cost(A, {X1, Y1}, {X2, Y2}) ->
-    (abs(X1 - X2) + abs(Y1 - Y2)) * step_cost(A).
+    (Y1 - 1 + abs(X1 - X2) + Y2 - 1) * step_cost(A).
 
 destinations(A, {X, 1}, Burrow) ->
     SideRoomX = side_room(A),
@@ -73,22 +82,8 @@ destinations(A, {X, 1}, Burrow) ->
             end,
             FreeInHallway = lists:all(fun (XH) -> maps:get({XH, 1}, Burrow) =:= undefined end, lists:seq(From, To)),
             case FreeInHallway of
-                true ->
-                    Depth = depth(Burrow),
-                    SideRoom = [maps:get({SideRoomX, SY}, Burrow) || SY <- lists:seq(2, Depth)],
-                    Occupied = lists:dropwhile(fun (SA) -> SA =:= undefined end, SideRoom),
-                    case Occupied of
-                        [] ->
-                            [{SideRoomX, Depth}];
-                        _ ->
-                            AllA = lists:all(fun (SA) -> SA =:= A end, Occupied),
-                            case AllA of
-                                true -> [{SideRoomX, Depth - length(Occupied)}];
-                                false -> []
-                            end
-                    end;
-                false ->
-                    []
+                true -> move_down(A, Burrow);
+                false -> []
             end;
         _ ->
             []
@@ -110,24 +105,56 @@ destinations(A, {X, Y}, Burrow) ->
             lists:all(fun (SY) -> maps:get({X, SY}, Burrow) =:= undefined end, lists:seq(2, Y - 1))
     end,
     case CanLeave of
-        true -> leaving(X, Burrow);
+        true -> leaving(A, X, Burrow);
         false -> []
     end.
 
-leaving(X, Burrow) ->
+move_down(A, Burrow) ->
+    SideRoomX = side_room(A),
+    Depth = depth(Burrow),
+    SideRoom = [maps:get({SideRoomX, SY}, Burrow) || SY <- lists:seq(2, Depth)],
+    Occupied = lists:dropwhile(fun (SA) -> SA =:= undefined end, SideRoom),
+    case Occupied of
+        [] ->
+            [{SideRoomX, Depth}];
+        _ ->
+            AllA = lists:all(fun (SA) -> SA =:= A end, Occupied),
+            case AllA of
+                true -> [{SideRoomX, Depth - length(Occupied)}];
+                false -> []
+            end
+    end.
+
+leaving_and_finishing(A, X, Burrow) ->
+    SideRoomX = side_room(A),
+    CanMoveHorizontally = case X < SideRoomX of
+        true -> hallway_free(X, 1, SideRoomX, Burrow) =:= SideRoomX;
+        false -> hallway_free(X, -1, SideRoomX, Burrow) =:= SideRoomX
+    end,
+    case CanMoveHorizontally of
+        true -> move_down(A, Burrow);
+        false -> []
+    end.
+
+leaving(A, X, Burrow) ->
     case maps:get({X, 1}, Burrow) of
         undefined ->
-            Before = hallway_free(X, -1, 1, Burrow),
-            After = hallway_free(X, 1, 11, Burrow),
-            BeforeX1 = case Before < X of
-                true -> [{XH, 1} || XH <- lists:seq(Before, X - 1)];
-                false -> []
-            end,
-            AfterX1 = case After > X of
-                true -> [{XH, 1} || XH <- lists:seq(X + 1, After)];
-                false -> []
-            end,
-            BeforeX1 ++ AfterX1;
+            case leaving_and_finishing(A, X, Burrow) of
+                [] ->
+                    Before = hallway_free(X, -1, 1, Burrow),
+                    After = hallway_free(X, 1, 11, Burrow),
+                    BeforeX1 = case Before < X of
+                        true -> [{XH, 1} || XH <- lists:seq(Before, X - 1)];
+                        false -> []
+                    end,
+                    AfterX1 = case After > X of
+                        true -> [{XH, 1} || XH <- lists:seq(X + 1, After)];
+                        false -> []
+                    end,
+                    lists:filter(fun ({XH, _Y}) -> not lists:member(XH, [3, 5, 7, 9]) end, BeforeX1 ++ AfterX1);
+                LaFResult ->
+                    LaFResult
+            end;
         _ ->
             []
     end.
